@@ -7,6 +7,8 @@ class EyeTrackingApp {
         this.isTracking = false;
         this.updateInterval = null;
         this.aoiCenter = { x: 0, y: 0 };
+        this.dataLog = [];
+        this.sessionStartTime = null;
         
         this.gazeIndicator = document.getElementById('gaze-indicator');
         this.attentionDisplay = document.getElementById('attention-value');
@@ -40,6 +42,8 @@ class EyeTrackingApp {
         document.getElementById('start-btn').addEventListener('click', () => this.startTracking());
         document.getElementById('stop-btn').addEventListener('click', () => this.stopTracking());
         document.getElementById('calibrate-btn').addEventListener('click', () => this.calibrate());
+        document.getElementById('export-btn').addEventListener('click', () => this.exportData());
+        document.getElementById('clear-btn').addEventListener('click', () => this.clearData());
         
         window.addEventListener('resize', () => this.setupAOI());
     }
@@ -68,6 +72,8 @@ class EyeTrackingApp {
         this.statusText.textContent = '追踪中';
         this.statusText.style.background = '#e8f5e9';
         this.statusText.style.color = '#2e7d32';
+        this.sessionStartTime = Date.now();
+        this.dataLog = [];
         
         webgazer.begin()
             .then(() => {
@@ -171,6 +177,48 @@ class EyeTrackingApp {
     updateDisplay() {
         this.attentionDisplay.textContent = Math.round(this.attentionValue);
         this.progressFill.style.width = `${this.attentionValue}%`;
+        
+        const prediction = webgazer.getCurrentPrediction();
+        if (prediction && this.isTracking) {
+            this.dataLog.push({
+                timestamp: Date.now(),
+                attentionValue: Math.round(this.attentionValue),
+                gazeX: Math.round(prediction.x),
+                gazeY: Math.round(prediction.y),
+                isInsideAOI: this.isInsideAOI(prediction.x, prediction.y)
+            });
+        }
+    }
+    
+    exportData() {
+        const exportData = {
+            sessionStartTime: this.sessionStartTime,
+            exportTime: Date.now(),
+            totalSamples: this.dataLog.length,
+            data: this.dataLog
+        };
+        
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `eye-tracking-data-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.statusText.textContent = '数据已导出';
+        this.statusText.style.background = '#e8f5e9';
+        this.statusText.style.color = '#2e7d32';
+    }
+    
+    clearData() {
+        this.dataLog = [];
+        this.sessionStartTime = null;
+        this.statusText.textContent = '数据已清除';
+        this.statusText.style.background = '#fff3e0';
+        this.statusText.style.color = '#e65100';
     }
 }
 
