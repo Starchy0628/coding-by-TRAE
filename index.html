@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>眼动交互网页</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>眼动交互系统</h1>
+        
+        <div class="attention-display">
+            <span class="label">注意力数值:</span>
+            <span id="attention-value">0</span>
+            <div class="progress-bar">
+                <div id="progress-fill"></div>
+            </div>
+        </div>
+
+        <div class="image-container-wrapper">
+            <div id="image-container">
+                <img id="target-image" src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20cat%20portrait%20looking%20at%20camera%20soft%20lighting&image_size=square" alt="猫咪图片">
+                <div id="aoi-circle"></div>
+                <div id="gaze-indicator"></div>
+            </div>
+            <div class="status-info">
+                <span id="status-text">准备就绪</span>
+                <span id="gaze-coords"></span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="start-btn" class="btn btn-primary">开始追踪</button>
+            <button id="stop-btn" class="btn btn-secondary">停止追踪</button>
+            <button id="calibrate-btn" class="btn btn-info">重新校准</button>
+        </div>
+
+        <div class="instructions">
+            <h3>使用说明</h3>
+            <ul>
+                <li>点击"开始追踪"按钮启动眼动追踪</li>
+                <li>首次使用需要允许摄像头权限</li>
+                <li>系统会自动校准，移动鼠标并点击进行校准</li>
+                <li>注视图片中心的红色圆圈区域会增加注意力数值</li>
+                <li>视线离开圆圈区域会减少注意力数值</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
