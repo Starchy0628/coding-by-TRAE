@@ -1,0 +1,12 @@
+- [ ] Checkpoint 1: 页面加载后注意力数值显示为0
+- [ ] Checkpoint 2: 图片正确显示在页面上
+- [ ] Checkpoint 3: AOI圆形区域显示在图片中心位置
+- [ ] Checkpoint 4: AOI区域半径为100px
+- [ ] Checkpoint 5: 鼠标进入AOI区域时正确检测
+- [ ] Checkpoint 6: 鼠标离开AOI区域时正确检测
+- [ ] Checkpoint 7: 鼠标在AOI内停留1秒，数值增加5
+- [ ] Checkpoint 8: 鼠标在AOI外停留1秒，数值减少10
+- [ ] Checkpoint 9: 数值不会超过100
+- [ ] Checkpoint 10: 数值不会低于0
+- [ ] Checkpoint 11: 数值变化实时显示在页面上
+- [ ] Checkpoint 12: 整体页面布局合理，用户体验良好
