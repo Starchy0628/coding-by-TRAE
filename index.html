@@ -3,54 +3,673 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>眼动交互网页</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>注意力监测 - 眼动追踪</title>
+    <style>
+        /* ========== 全局基础样式 ========== */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: #ffffff;
+            color: #1a1a2e;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 40px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ========== 主容器 ========== */
+        .app-container {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            padding: 0 20px;
+        }
+
+        /* ========== 注意力分值面板 ========== */
+        .attention-panel {
+            text-align: center;
+            padding: 28px 48px 24px;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+            width: 100%;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .score-value {
+            font-size: 96px;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: -2px;
+            transition: color 0.5s ease;
+            user-select: none;
+        }
+
+        .score-value.low {
+            color: #ef4444;
+        }
+
+        .score-value.high {
+            color: #22c55e;
+        }
+
+        .status-label {
+            font-size: 22px;
+            font-weight: 600;
+            margin-top: 8px;
+            letter-spacing: 2px;
+            transition: color 0.5s ease;
+            user-select: none;
+        }
+
+        .status-label.low {
+            color: #ef4444;
+        }
+
+        .status-label.high {
+            color: #22c55e;
+        }
+
+        .score-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            margin-top: 14px;
+            overflow: hidden;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s ease, background 0.5s ease;
+        }
+
+        .score-bar-fill.low {
+            background: #ef4444;
+        }
+
+        .score-bar-fill.high {
+            background: #22c55e;
+        }
+
+        /* ========== AOI 区域容器 ========== */
+        .aoi-wrapper {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .aoi-zone {
+            width: 300px;
+            height: 300px;
+            border: 3px solid rgba(59, 130, 246, 0.35);
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            background: #fafbfc;
+            box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.06);
+            transition: border-color 0.4s ease, box-shadow 0.4s ease;
+        }
+
+        .aoi-zone.active {
+            border-color: rgba(34, 197, 94, 0.55);
+            box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.08);
+        }
+
+        .aoi-zone img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .aoi-label {
+            position: absolute;
+            top: -32px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 13px;
+            color: #6b7280;
+            white-space: nowrap;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+
+        /* ========== 眼动预测红点 ========== */
+        .gaze-dot {
+            position: fixed;
+            width: 14px;
+            height: 14px;
+            background: #ef4444;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.5), 0 0 18px rgba(239, 68, 68, 0.25);
+            transition: opacity 0.15s ease;
+            opacity: 0;
+        }
+
+        .gaze-dot.visible {
+            opacity: 1;
+        }
+
+        /* ========== 控制按钮组 ========== */
+        .controls {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 12px 28px;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .btn-reset {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-reset:hover {
+            background: #e5e7eb;
+            transform: translateY(-1px);
+        }
+
+        .btn-reset:active {
+            transform: translateY(0);
+            background: #d1d5db;
+        }
+
+        .btn-toggle {
+            background: #3b82f6;
+            color: #ffffff;
+            min-width: 140px;
+        }
+
+        .btn-toggle:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+        }
+
+        .btn-toggle:active {
+            transform: translateY(0);
+            background: #1d4ed8;
+        }
+
+        .btn-toggle.paused {
+            background: #22c55e;
+        }
+
+        .btn-toggle.paused:hover {
+            background: #16a34a;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.35);
+        }
+
+        /* ========== 摄像头预览容器 ========== */
+        .camera-preview {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 180px;
+            height: 135px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+            z-index: 1000;
+            background: #000;
+            border: 2px solid rgba(59, 130, 246, 0.25);
+            transition: opacity 0.3s ease;
+        }
+
+        .camera-preview video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .camera-preview-label {
+            position: absolute;
+            top: 6px;
+            left: 8px;
+            font-size: 10px;
+            color: #ffffff;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 2px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            letter-spacing: 0.5px;
+        }
+
+        /* ========== 状态指示器 ========== */
+        .tracking-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .indicator-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .indicator-dot.paused {
+            background: #f59e0b;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>眼动交互系统</h1>
-        
-        <div class="attention-display">
-            <span class="label">注意力数值:</span>
-            <span id="attention-value">0</span>
-            <div class="progress-bar">
-                <div id="progress-fill"></div>
+    <div class="app-container">
+        <!-- 注意力分值面板 -->
+        <div class="attention-panel" id="attentionPanel">
+            <div class="score-value low" id="scoreValue">0</div>
+            <div class="status-label low" id="statusLabel">走神</div>
+            <div class="score-bar-bg">
+                <div class="score-bar-fill low" id="scoreBarFill" style="width: 0%;"></div>
             </div>
         </div>
 
-        <div class="image-container-wrapper">
-            <div id="image-container">
-                <img id="target-image" src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20cat%20portrait%20looking%20at%20camera%20soft%20lighting&image_size=square" alt="猫咪图片">
-                <div id="aoi-circle"></div>
-                <div id="gaze-indicator"></div>
-            </div>
-            <div class="status-info">
-                <span id="status-text">准备就绪</span>
-                <span id="gaze-coords"></span>
+        <!-- 状态指示器 -->
+        <div class="tracking-indicator" id="trackingIndicator">
+            <span class="indicator-dot" id="indicatorDot"></span>
+            <span id="indicatorText">眼动追踪运行中</span>
+        </div>
+
+        <!-- AOI 兴趣区域 -->
+        <div class="aoi-wrapper">
+            <span class="aoi-label">AOI 兴趣区域</span>
+            <div class="aoi-zone" id="aoiZone">
+                <!-- 白色背景图片（使用 SVG Data URI 生成 300×300 纯白图片） -->
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect width='300' height='300' fill='%23ffffff'/%3E%3C/svg%3E" alt="AOI 区域">
             </div>
         </div>
 
+        <!-- 控制按钮组 -->
         <div class="controls">
-            <button id="start-btn" class="btn btn-primary">开始追踪</button>
-            <button id="stop-btn" class="btn btn-secondary">停止追踪</button>
-            <button id="calibrate-btn" class="btn btn-info">重新校准</button>
-            <button id="export-btn" class="btn btn-success">导出数据</button>
-            <button id="clear-btn" class="btn btn-danger">清除数据</button>
-        </div>
-
-        <div class="instructions">
-            <h3>使用说明</h3>
-            <ul>
-                <li>点击"开始追踪"按钮启动眼动追踪</li>
-                <li>首次使用需要允许摄像头权限</li>
-                <li>系统会自动校准，移动鼠标并点击进行校准</li>
-                <li>注视图片中心的红色圆圈区域会增加注意力数值</li>
-                <li>视线离开圆圈区域会减少注意力数值</li>
-            </ul>
+            <button class="btn btn-reset" id="btnReset">重置分数</button>
+            <button class="btn btn-toggle" id="btnToggle">暂停追踪</button>
         </div>
     </div>
 
+    <!-- 眼动预测红点 -->
+    <div class="gaze-dot" id="gazeDot"></div>
+
+    <!-- 摄像头预览窗口 -->
+    <div class="camera-preview" id="cameraPreview">
+        <span class="camera-preview-label">摄像头预览</span>
+    </div>
+
+    <!-- ==================== WebGazer.js CDN 引入 ==================== -->
     <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
-    <script src="app.js"></script>
+
+    <!-- ==================== 核心逻辑脚本 ==================== -->
+    <script>
+    (function () {
+        'use strict';
+
+        /* ========== DOM 元素引用 ========== */
+        var scoreValueEl   = document.getElementById('scoreValue');
+        var statusLabelEl  = document.getElementById('statusLabel');
+        var scoreBarFillEl = document.getElementById('scoreBarFill');
+        var aoiZoneEl      = document.getElementById('aoiZone');
+        var gazeDotEl      = document.getElementById('gazeDot');
+        var btnResetEl     = document.getElementById('btnReset');
+        var btnToggleEl    = document.getElementById('btnToggle');
+        var indicatorDotEl = document.getElementById('indicatorDot');
+        var indicatorTextEl = document.getElementById('indicatorText');
+        var cameraPreviewEl = document.getElementById('cameraPreview');
+
+        /* ========== 运行时状态变量 ========== */
+        var attentionScore  = 0;    // 目标分值（0-100）
+        var displayScore    = 0;    // 当前显示分值（用于平滑过渡）
+        var isInAOI         = false; // 视线是否在 AOI 区域内
+        var isTracking      = true;  // 追踪是否进行中
+        var gazeX           = 0;     // 当前视线 X 坐标
+        var gazeY           = 0;     // 当前视线 Y 坐标
+        var scoreTimerId    = null;  // 分值计算定时器 ID
+        var animFrameId     = null;  // 动画帧 ID
+        var webgazerReady   = false; // WebGazer 是否就绪
+
+        /* ========== 判断视线是否在 AOI 区域内 ========== */
+        function checkGazeInAOI(x, y) {
+            var rect = aoiZoneEl.getBoundingClientRect();
+            return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+        }
+
+        /* ========== 更新 UI：分值、状态标签、进度条、AOI 区域高亮 ========== */
+        function updateUI(score) {
+            var rounded = Math.round(score);
+            var isLow = rounded <= 30;
+
+            // 更新分值数字
+            scoreValueEl.textContent = rounded;
+
+            // 更新状态标签
+            if (rounded <= 30) {
+                statusLabelEl.textContent = '走神';
+            } else {
+                statusLabelEl.textContent = '专注';
+            }
+
+            // 切换颜色类名
+            if (isLow) {
+                scoreValueEl.classList.add('low');
+                scoreValueEl.classList.remove('high');
+                statusLabelEl.classList.add('low');
+                statusLabelEl.classList.remove('high');
+                scoreBarFillEl.classList.add('low');
+                scoreBarFillEl.classList.remove('high');
+            } else {
+                scoreValueEl.classList.remove('low');
+                scoreValueEl.classList.add('high');
+                statusLabelEl.classList.remove('low');
+                statusLabelEl.classList.add('high');
+                scoreBarFillEl.classList.remove('low');
+                scoreBarFillEl.classList.add('high');
+            }
+
+            // 更新进度条宽度
+            scoreBarFillEl.style.width = rounded + '%';
+
+            // AOI 区域高亮
+            if (isInAOI) {
+                aoiZoneEl.classList.add('active');
+            } else {
+                aoiZoneEl.classList.remove('active');
+            }
+        }
+
+        /* ========== 平滑动画循环（使用 requestAnimationFrame 实现无极过渡） ========== */
+        function smoothAnimationLoop() {
+            // 向目标分值平滑逼近
+            var diff = attentionScore - displayScore;
+            if (Math.abs(diff) < 0.05) {
+                displayScore = attentionScore;
+            } else {
+                displayScore += diff * 0.15; // 缓动系数，实现平滑过渡
+            }
+
+            updateUI(displayScore);
+            animFrameId = requestAnimationFrame(smoothAnimationLoop);
+        }
+
+        /* ========== 每秒分值计算 ========== */
+        function scoreTick() {
+            if (!isTracking) return;
+
+            if (isInAOI) {
+                // 视线在 AOI 内：每秒 +5，上限 100
+                attentionScore = Math.min(attentionScore + 5, 100);
+            } else {
+                // 视线离开 AOI：每秒 -10，下限 0
+                attentionScore = Math.max(attentionScore - 10, 0);
+            }
+
+            // 控制台调试输出
+            console.log(
+                '%c[眼动追踪]%c 视线坐标: (' + gazeX.toFixed(1) + ', ' + gazeY.toFixed(1) + ') | ' +
+                'AOI状态: ' + (isInAOI ? '区域内' : '区域外') + ' | ' +
+                '专注状态: ' + (attentionScore <= 30 ? '走神' : '专注') + ' | ' +
+                '分值: ' + Math.round(attentionScore),
+                'color: #3b82f6; font-weight: bold;',
+                'color: #374151;'
+            );
+        }
+
+        /* ========== 启动分值计算定时器 ========== */
+        function startScoreTimer() {
+            if (scoreTimerId !== null) return;
+            scoreTimerId = setInterval(scoreTick, 1000);
+        }
+
+        /* ========== 停止分值计算定时器 ========== */
+        function stopScoreTimer() {
+            if (scoreTimerId !== null) {
+                clearInterval(scoreTimerId);
+                scoreTimerId = null;
+            }
+        }
+
+        /* ========== 启动平滑动画循环 ========== */
+        function startAnimationLoop() {
+            if (animFrameId !== null) return;
+            animFrameId = requestAnimationFrame(smoothAnimationLoop);
+        }
+
+        /* ========== 停止平滑动画循环 ========== */
+        function stopAnimationLoop() {
+            if (animFrameId !== null) {
+                cancelAnimationFrame(animFrameId);
+                animFrameId = null;
+            }
+        }
+
+        /* ========== 更新视线红点位置 ========== */
+        function updateGazeDot(x, y) {
+            gazeDotEl.style.left = x + 'px';
+            gazeDotEl.style.top  = y + 'px';
+            gazeDotEl.classList.add('visible');
+        }
+
+        /* ========== 隐藏视线红点 ========== */
+        function hideGazeDot() {
+            gazeDotEl.classList.remove('visible');
+        }
+
+        /* ========== 重置注意力分值 ========== */
+        function resetScore() {
+            attentionScore = 0;
+            displayScore   = 0;
+            updateUI(0);
+            console.log('%c[眼动追踪]%c 分值已重置为 0', 'color: #3b82f6; font-weight: bold;', 'color: #374151;');
+        }
+
+        /* ========== 暂停追踪 ========== */
+        function pauseTracking() {
+            if (!isTracking) return;
+            isTracking = false;
+
+            if (typeof webgazer !== 'undefined' && webgazerReady) {
+                webgazer.pause();
+            }
+
+            hideGazeDot();
+            btnToggleEl.textContent = '开始追踪';
+            btnToggleEl.classList.add('paused');
+            indicatorDotEl.classList.add('paused');
+            indicatorTextEl.textContent = '眼动追踪已暂停';
+
+            console.log('%c[眼动追踪]%c 追踪已暂停', 'color: #f59e0b; font-weight: bold;', 'color: #374151;');
+        }
+
+        /* ========== 恢复追踪 ========== */
+        function resumeTracking() {
+            if (isTracking) return;
+            isTracking = true;
+
+            if (typeof webgazer !== 'undefined' && webgazerReady) {
+                webgazer.resume();
+            }
+
+            btnToggleEl.textContent = '暂停追踪';
+            btnToggleEl.classList.remove('paused');
+            indicatorDotEl.classList.remove('paused');
+            indicatorTextEl.textContent = '眼动追踪运行中';
+
+            console.log('%c[眼动追踪]%c 追踪已恢复', 'color: #22c55e; font-weight: bold;', 'color: #374151;');
+        }
+
+        /* ========== 切换追踪状态 ========== */
+        function toggleTracking() {
+            if (isTracking) {
+                pauseTracking();
+            } else {
+                resumeTracking();
+            }
+        }
+
+        /* ========== 初始化 WebGazer 眼动追踪 ========== */
+        function initWebGazer() {
+            if (typeof webgazer === 'undefined') {
+                console.warn('[眼动追踪] WebGazer.js 未加载，请检查网络连接');
+                indicatorTextEl.textContent = 'WebGazer.js 加载失败';
+                indicatorDotEl.classList.add('paused');
+                return;
+            }
+
+            // 配置 WebGazer
+            webgazer
+                .setRegression('ridge')                          // 使用岭回归模型
+                .setTracker('TFFacemesh')                        // 使用 TensorFlow Facemesh 追踪器
+                .showVideoPreview(true)                          // 显示内置摄像头预览
+                .showPredictionPoints(false)                     // 隐藏默认预测点（使用自定义红点）
+                .showFaceOverlay(false)                          // 隐藏面部覆盖层
+                .showFaceFeedbackBox(false);                     // 隐藏面部反馈框
+
+            // 设置视线监听回调
+            webgazer.setGazeListener(function (data) {
+                if (data == null) {
+                    // 暂无预测数据
+                    hideGazeDot();
+                    return;
+                }
+
+                // 更新视线坐标
+                gazeX = data.x;
+                gazeY = data.y;
+
+                // 更新 AOI 碰撞状态
+                isInAOI = checkGazeInAOI(gazeX, gazeY);
+
+                // 更新视线红点
+                updateGazeDot(gazeX, gazeY);
+
+                // 调试输出（每次视线更新都输出，方便调试）
+                console.debug(
+                    '[眼动追踪] 视线: (' + gazeX.toFixed(1) + ', ' + gazeY.toFixed(1) + ') | ' +
+                    'AOI: ' + (isInAOI ? '区域内' : '区域外')
+                );
+            });
+
+            // 启动追踪（自动请求摄像头权限）
+            webgazer.begin().then(function () {
+                webgazerReady = true;
+                console.log('%c[眼动追踪]%c WebGazer 初始化成功，眼动追踪已启动', 'color: #22c55e; font-weight: bold;', 'color: #374151;');
+                indicatorTextEl.textContent = '眼动追踪运行中';
+                indicatorDotEl.classList.remove('paused');
+
+                // 将 WebGazer 生成的视频元素移动到自定义预览容器中
+                setTimeout(moveVideoToPreview, 500);
+            }).catch(function (err) {
+                console.error('[眼动追踪] WebGazer 启动失败:', err);
+                indicatorTextEl.textContent = '摄像头权限未授予或启动失败';
+                indicatorDotEl.classList.add('paused');
+            });
+        }
+
+        /* ========== 将 WebGazer 视频元素移到自定义预览容器 ========== */
+        function moveVideoToPreview() {
+            var videoEl = document.getElementById('webgazerVideoFeed');
+            if (videoEl && cameraPreviewEl) {
+                // 移除视频原有的内联样式
+                videoEl.removeAttribute('style');
+                cameraPreviewEl.appendChild(videoEl);
+                console.log('[眼动追踪] 摄像头预览已就绪');
+            }
+        }
+
+        /* ========== 停止眼动追踪并释放资源 ========== */
+        function stopWebGazer() {
+            stopScoreTimer();
+            stopAnimationLoop();
+
+            if (typeof webgazer !== 'undefined' && webgazerReady) {
+                webgazer.end();
+                webgazerReady = false;
+                console.log('[眼动追踪] 追踪已停止，摄像头资源已释放');
+            }
+        }
+
+        /* ========== 绑定事件 ========== */
+        function bindEvents() {
+            // 重置分数按钮
+            btnResetEl.addEventListener('click', resetScore);
+
+            // 暂停 / 开始追踪按钮
+            btnToggleEl.addEventListener('click', toggleTracking);
+
+            // 页面关闭 / 刷新时自动释放资源
+            window.addEventListener('beforeunload', function () {
+                stopWebGazer();
+            });
+
+            // 页面隐藏时暂停（切换标签页），页面显示时恢复
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden) {
+                    if (typeof webgazer !== 'undefined' && webgazerReady && isTracking) {
+                        webgazer.pause();
+                    }
+                } else {
+                    if (typeof webgazer !== 'undefined' && webgazerReady && isTracking) {
+                        webgazer.resume();
+                    }
+                }
+            });
+        }
+
+        /* ========== 应用启动入口 ========== */
+        function bootstrap() {
+            console.log('%c[眼动追踪]%c 应用启动中...', 'color: #3b82f6; font-weight: bold;', 'color: #374151;');
+            console.log('%c[眼动追踪]%c 准备请求摄像头权限...', 'color: #3b82f6; font-weight: bold;', 'color: #374151;');
+
+            bindEvents();
+            startScoreTimer();
+            startAnimationLoop();
+            initWebGazer();
+        }
+
+        // 页面加载完成后启动应用
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bootstrap);
+        } else {
+            bootstrap();
+        }
+    })();
+    </script>
 </body>
 </html>
